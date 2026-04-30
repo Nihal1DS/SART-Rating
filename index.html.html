@@ -18,11 +18,11 @@
   ╚══════════════════════════════════════════════════════════╝
 -->
 <script>
-  const FIREBASE_CONFIG = {
+  const firebaseConfig = {
   apiKey: "AIzaSyDdWkhPYoSVIbGgCHJm-MuAXGiHo6fn4eY",
   authDomain: "rate-sart.firebaseapp.com",
   projectId: "rate-sart",
-  storageBucket: "rate-sart.appspot.com",
+  storageBucket: "rate-sart.firebasestorage.app",
   messagingSenderId: "527815215156",
   appId: "1:527815215156:web:ba03b8746415c4f71d2261",
   measurementId: "G-5GSLC9ETNZ"
@@ -323,7 +323,7 @@ import { getFirestore, collection, addDoc, query,
          serverTimestamp, Timestamp }               from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 /* ── 0. SETUP CHECK ────────────────────────────────── */
-const configured = FIREBASE_CONFIG.apiKey !== "AIzaSyDdWkhPYoSVIbGgCHJm-MuAXGiHo6fn4eY";
+const configured = FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
 if (!configured) {
   document.getElementById("setup-banner").style.display = "block";
   document.getElementById("auth-screen").style.display  = "flex";
