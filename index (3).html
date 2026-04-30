@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RateSART — IIT Guwahati</title>
+
+<!--
+  ╔══════════════════════════════════════════════════════════╗
+  ║         FIREBASE CONFIGURATION — FILL THIS IN            ║
+  ║                                                          ║
+  ║  1. Go to https://console.firebase.google.com           ║
+  ║  2. Create a project → Add a web app                    ║
+  ║  3. Copy your config object values below                 ║
+  ║  4. Enable Auth → Email/Password in Firebase Console    ║
+  ║  5. Enable Firestore Database → Start in test mode      ║
+  ║  6. Paste Firestore Security Rules (see bottom of file) ║
+  ╚══════════════════════════════════════════════════════════╝
+-->
+<script>
+  const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyDdWkhPYoSVIbGgCHJm-MuAXGiHo6fn4eY",
+    authDomain:        "rate-sart.firebaseapp.com",
+    projectId:         "rate-sart",
+    storageBucket:     "rate-sart.firebasestorage.app",
+    messagingSenderId: "527815215156",
+    appId:             "1:527815215156:web:ba03b8746415c4f71d2261",
+    measurementId:     "G-5GSLC9ETNZ"
+  };
+  const ALLOWED_DOMAIN = "iitg.ac.in";
+</script>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:      #0f2557;
+    --navy-dark: #091a3d;
+    --navy-mid:  #1a3a7c;
+    --gold:      #e8a020;
+    --gold-lt:   #faeeda;
+    --text:      #1a1a2e;
+    --text-2:    #5a6075;
+    --text-3:    #9aa0b2;
+    --bg:        #f7f8fc;
+    --surface:   #ffffff;
+    --border:    rgba(15,37,87,0.12);
+    --border-2:  rgba(15,37,87,0.22);
+    --success:   #1d6e38;
+    --warn:      #a06010;
+    --danger:    #c03030;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+  }
+
+  html, body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.5; }
+
+  /* ── LAYOUT ─────────────────────────────── */
+  #setup-banner { background: #fff3cd; border-bottom: 1px solid #ffc107; padding: 10px 20px; text-align: center; font-size: 13px; color: #856404; display: none; }
+  #setup-banner a { color: #0f2557; font-weight: 600; }
+  #auth-screen  { display: none; min-height: 100vh; align-items: center; justify-content: center; padding: 1.5rem; }
+  #app-screen   { display: none; min-height: 100vh; }
+
+  /* ── AUTH ────────────────────────────────── */
+  .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2.5rem 2rem; width: 100%; max-width: 420px; box-shadow: 0 4px 24px rgba(15,37,87,0.08); }
+  .auth-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 1.75rem; }
+  .auth-logo-icon { width: 42px; height: 42px; background: var(--navy); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; }
+  .auth-logo-icon span { color: var(--gold); font-size: 18px; font-weight: 700; letter-spacing: -1px; }
+  .auth-logo-text h1 { font-size: 18px; font-weight: 700; color: var(--navy); letter-spacing: -0.02em; }
+  .auth-logo-text p  { font-size: 12px; color: var(--text-2); }
+  .auth-tabs { display: flex; background: var(--bg); border-radius: var(--radius-sm); padding: 3px; margin-bottom: 1.5rem; }
+  .auth-tab { flex: 1; text-align: center; padding: 8px; border-radius: 6px; font-size: 14px; cursor: pointer; color: var(--text-2); font-weight: 500; transition: all 0.15s; }
+  .auth-tab.active { background: var(--surface); color: var(--navy); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--text-2); margin-bottom: 5px; }
+  .form-group input { width: 100%; padding: 0.625rem 0.875rem; border: 1px solid var(--border-2); border-radius: var(--radius-sm); font-size: 14px; color: var(--text); background: var(--surface); transition: border-color 0.15s; }
+  .form-group input:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px rgba(15,37,87,0.08); }
+  .domain-hint { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+  .auth-btn { width: 100%; padding: 0.7rem; background: var(--navy); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 0.5rem; transition: background 0.15s; letter-spacing: 0.01em; }
+  .auth-btn:hover { background: var(--navy-mid); }
+  .auth-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .auth-error { background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: 0.625rem 0.875rem; font-size: 13px; color: #b91c1c; margin-bottom: 1rem; display: none; }
+  .auth-success { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-sm); padding: 0.625rem 0.875rem; font-size: 13px; color: #15803d; margin-bottom: 1rem; display: none; }
+  .auth-divider { text-align: center; font-size: 12px; color: var(--text-3); margin: 1rem 0; }
+  .password-wrap { position: relative; }
+  .password-wrap input { padding-right: 2.5rem; }
+  .eye-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-3); font-size: 16px; }
+
+  /* ── TOPNAV ──────────────────────────────── */
+  .topnav { background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 1.25rem; height: 52px; position: sticky; top: 0; z-index: 100; }
+  .topnav-brand { display: flex; align-items: center; gap: 10px; }
+  .topnav-brand .icon { background: var(--gold); color: var(--navy); width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
+  .topnav-brand span { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+  .topnav-right { display: flex; align-items: center; gap: 12px; }
+  .user-chip { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 4px 12px 4px 4px; }
+  .user-avatar { width: 24px; height: 24px; background: var(--gold); color: var(--navy); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+  .user-email-short { font-size: 12px; opacity: 0.9; }
+  .logout-btn { background: rgba(255,255,255,0.12); color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: background 0.15s; }
+  .logout-btn:hover { background: rgba(255,255,255,0.22); }
+
+  /* ── MAIN CONTENT ────────────────────────── */
+  .main { max-width: 960px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+
+  /* ── HOME VIEW ───────────────────────────── */
+  .home-hero { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%); color: #fff; border-radius: var(--radius-lg); padding: 1.5rem 1.75rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+  .home-hero h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+  .home-hero p  { font-size: 13px; opacity: 0.75; margin-top: 2px; }
+  .hero-stats { display: flex; gap: 1.5rem; }
+  .hero-stat { text-align: center; }
+  .hero-stat .n { font-size: 22px; font-weight: 700; color: var(--gold); }
+  .hero-stat .l { font-size: 11px; opacity: 0.7; }
+  .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .search-input { flex: 1; min-width: 180px; padding: 0.55rem 0.875rem; border: 1px solid var(--border-2); border-radius: var(--radius-sm); font-size: 14px; color: var(--text); background: var(--surface); }
+  .search-input:focus { outline: none; border-color: var(--navy); }
+  .filter-tabs { display: flex; gap: 6px; }
+  .ftab { padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 1px solid var(--border-2); background: var(--surface); color: var(--text-2); transition: all 0.15s; white-space: nowrap; }
+  .ftab.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+  /* ── CARDS ───────────────────────────────── */
+  .prof-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+  .prof-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1rem; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; position: relative; overflow: hidden; }
+  .prof-card:hover { border-color: var(--navy); box-shadow: 0 2px 12px rgba(15,37,87,0.1); }
+  .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .avatar.assoc { background: var(--navy-mid); }
+  .card-name { font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--text); }
+  .card-role { font-size: 11px; color: var(--text-2); margin-top: 1px; }
+  .card-interests { font-size: 11px; color: var(--text-3); line-height: 1.5; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+  .rating-display { display: flex; align-items: baseline; gap: 4px; }
+  .rating-num { font-size: 16px; font-weight: 700; }
+  .rating-star { color: var(--gold); font-size: 13px; }
+  .rating-count { font-size: 11px; color: var(--text-3); }
+  .type-pill { font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 500; }
+  .core-pill { background: #e6f1fb; color: #0c447c; }
+  .assoc-pill { background: #f1efe8; color: #5f5e5a; }
+  .no-rating-txt { font-size: 11px; color: var(--text-3); }
+
+  /* ── DETAIL VIEW ─────────────────────────── */
+  .back-row { display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
+  .back-btn { background: none; border: none; color: var(--text-2); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 6px 0; }
+  .back-btn:hover { color: var(--navy); }
+  .detail-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.25rem; }
+  .detail-header { display: flex; align-items: flex-start; gap: 1.25rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; }
+  .avatar-xl { width: 60px; height: 60px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; flex-shrink: 0; }
+  .detail-name { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+  .detail-role { font-size: 13px; color: var(--text-2); margin: 3px 0 6px; }
+  .detail-interests { font-size: 13px; color: var(--text-3); line-height: 1.6; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+  .stat-box { background: var(--bg); border-radius: var(--radius-sm); padding: 0.875rem; text-align: center; }
+  .stat-num { font-size: 26px; font-weight: 700; line-height: 1; }
+  .stat-stars { color: var(--gold); font-size: 14px; margin: 3px 0 1px; }
+  .stat-lbl { font-size: 11px; color: var(--text-3); }
+
+  /* ── REVIEWS ─────────────────────────────── */
+  .section-hd { font-size: 15px; font-weight: 600; margin-bottom: 0.875rem; display: flex; align-items: center; gap: 8px; }
+  .section-badge { background: var(--bg); color: var(--text-2); font-size: 12px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+  .review-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.875rem 1rem; margin-bottom: 0.75rem; }
+  .review-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .review-stars { color: var(--gold); font-size: 13px; letter-spacing: 1px; }
+  .review-course { background: var(--surface); border: 1px solid var(--border); color: var(--text-2); font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+  .review-user { font-size: 11px; color: var(--text-3); margin-left: auto; }
+  .review-body { font-size: 13px; color: var(--text-2); line-height: 1.6; margin-bottom: 6px; }
+  .review-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rpill { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+  .rpill-diff { background: #faeeda; color: #854f0b; }
+  .rpill-teach { background: #e6f1fb; color: #185fa5; }
+  .rpill-again { background: #eaf3de; color: #3b6d11; }
+  .rpill-noagain { background: #fcebeb; color: #a32d2d; }
+  .empty-state { text-align: center; padding: 2rem 1rem; color: var(--text-3); font-size: 13px; }
+
+  /* ── RATING FORM ─────────────────────────── */
+  .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; }
+  .form-hd { font-size: 16px; font-weight: 600; margin-bottom: 1.25rem; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-size: 13px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; }
+  .star-row { display: flex; gap: 4px; }
+  .sstar { font-size: 26px; cursor: pointer; color: #d0d4e0; transition: color 0.1s; background: none; border: none; padding: 0 2px; line-height: 1; }
+  .sstar.lit { color: var(--gold); }
+  .sstar:hover { color: var(--gold); }
+  .toggle-group { display: flex; gap: 8px; }
+  .topt { padding: 7px 18px; border: 1px solid var(--border-2); border-radius: 20px; font-size: 13px; cursor: pointer; background: var(--surface); color: var(--text-2); transition: all 0.15s; }
+  .topt.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .finput { width: 100%; padding: 0.575rem 0.875rem; border: 1px solid var(--border-2); border-radius: var(--radius-sm); font-size: 13px; color: var(--text); background: var(--surface); }
+  .finput:focus { outline: none; border-color: var(--navy); }
+  textarea.finput { resize: vertical; min-height: 80px; }
+  .submit-row { display: flex; align-items: center; gap: 12px; margin-top: 1.25rem; }
+  .submit-btn { background: var(--navy); color: #fff; border: none; border-radius: var(--radius-sm); padding: 0.65rem 1.75rem; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  .submit-btn:hover { background: var(--navy-mid); }
+  .submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .submit-note { font-size: 12px; color: var(--text-3); }
+
+  /* ── LIVE BADGE ──────────────────────────── */
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; display: inline-block; margin-right: 4px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── TOAST ───────────────────────────────── */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a2e1a; color: #fff; padding: 0.625rem 1.5rem; border-radius: 20px; font-size: 13px; z-index: 9999; opacity: 0; transition: opacity 0.25s; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+
+  /* ── LOADING ─────────────────────────────── */
+  .loader { display: flex; align-items: center; justify-content: center; min-height: 200px; color: var(--text-3); font-size: 14px; gap: 10px; }
+  .spinner { width: 20px; height: 20px; border: 2px solid var(--border-2); border-top-color: var(--navy); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── UTIL ────────────────────────────────── */
+  .rcolor-high { color: #1d6e38; }
+  .rcolor-mid  { color: #a06010; }
+  .rcolor-low  { color: #c03030; }
+
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .hero-stats { display: none; }
+    .home-hero { padding: 1.25rem; }
+    .controls { flex-direction: column; align-items: stretch; }
+    .filter-tabs { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Setup warning shown when config isn't filled in -->
+<div id="setup-banner">
+  ⚠️ Firebase is not configured yet. Open this file and fill in <strong>FIREBASE_CONFIG</strong> at the top.
+  <a href="https://console.firebase.google.com" target="_blank">Open Firebase Console →</a>
+</div>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon"><span>RS</span></div>
+      <div class="auth-logo-text">
+        <h1>RateSART</h1>
+        <p>IIT Guwahati — School of Agro &amp; Rural Technology</p>
+      </div>
+    </div>
+
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign In</div>
+      <div class="auth-tab" id="tab-register" onclick="switchTab('register')">Register</div>
+    </div>
+
+    <div id="auth-error" class="auth-error"></div>
+    <div id="auth-success" class="auth-success"></div>
+
+    <!-- LOGIN FORM -->
+    <div id="login-form">
+      <div class="form-group">
+        <label>Institutional Email</label>
+        <input type="email" id="login-email" placeholder="yourname@iitg.ac.in" autocomplete="email">
+        <div class="domain-hint">Only @iitg.ac.in addresses are accepted</div>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="password-wrap">
+          <input type="password" id="login-pass" placeholder="Enter your password" autocomplete="current-password">
+          <button class="eye-btn" onclick="togglePwd('login-pass')">👁</button>
+        </div>
+      </div>
+      <button class="auth-btn" id="login-btn" onclick="doLogin()">Sign In</button>
+      <div class="auth-divider">Don't have an account? <a href="#" style="color:var(--navy);font-weight:600" onclick="switchTab('register');return false">Register here</a></div>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="register-form" style="display:none">
+      <div class="form-group">
+        <label>Institutional Email</label>
+        <input type="email" id="reg-email" placeholder="yourname@iitg.ac.in" autocomplete="email">
+        <div class="domain-hint">Must be an @iitg.ac.in email address</div>
+      </div>
+      <div class="form-group">
+        <label>Password <span style="font-size:11px;color:var(--text-3)">(min. 6 characters)</span></label>
+        <div class="password-wrap">
+          <input type="password" id="reg-pass" placeholder="Create a password" autocomplete="new-password">
+          <button class="eye-btn" onclick="togglePwd('reg-pass')">👁</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="reg-pass2" placeholder="Re-enter password" autocomplete="new-password">
+      </div>
+      <button class="auth-btn" id="reg-btn" onclick="doRegister()">Create Account</button>
+      <div class="auth-divider">Already registered? <a href="#" style="color:var(--navy);font-weight:600" onclick="switchTab('login');return false">Sign in here</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="app-screen">
+  <nav class="topnav">
+    <div class="topnav-brand">
+      <div class="icon">RS</div>
+      <span>RateSART &mdash; IITG</span>
+    </div>
+    <div class="topnav-right">
+      <div class="user-chip">
+        <div class="user-avatar" id="user-initials">?</div>
+        <span class="user-email-short" id="user-display"></span>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">Sign out</button>
+    </div>
+  </nav>
+
+  <div class="main" id="main-content">
+    <div class="loader"><div class="spinner"></div> Loading...</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!--  FIREBASE SDK (v10 modular via CDN)                            -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp }                            from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword,
+         signInWithEmailAndPassword, signOut,
+         onAuthStateChanged }                       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, query,
+         where, orderBy, onSnapshot,
+         serverTimestamp, Timestamp }               from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+/* ── 0. SETUP CHECK ────────────────────────────────── */
+const configured = FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
+if (!configured) {
+  document.getElementById("setup-banner").style.display = "block";
+  document.getElementById("auth-screen").style.display  = "flex";
+  document.getElementById("auth-screen").style.pointerEvents = "none";
+  document.getElementById("auth-screen").style.opacity  = "0.4";
+}
+
+/* ── 1. INIT FIREBASE ──────────────────────────────── */
+const app  = configured ? initializeApp(FIREBASE_CONFIG) : null;
+const auth = app ? getAuth(app) : null;
+const db   = app ? getFirestore(app) : null;
+
+/* ── 2. FACULTY DATA ───────────────────────────────── */
+const FACULTY = [
+  { id:1,  name:"Prof. Sudip Mitra",       short:"SM", role:"Head, Professor",          type:"core",  interests:"Biochar & Bio-Fertilizers, Soil quality, NRM, Vulnerability & Adaptation, DRR" },
+  { id:2,  name:"Dr. Meena Khwairakpam",   short:"MK", role:"Associate Professor",      type:"core",  interests:"Solid waste management, composting, vermicomposting, Water Supply & Sanitation" },
+  { id:3,  name:"Dr. Siddhartha Singha",   short:"SS", role:"Assistant Professor",      type:"core",  interests:"Food Processing Technologies, Process biotechnology, Scale up & commercialization" },
+  { id:4,  name:"Dr. Sagar Deshmukh",      short:"SD", role:"Assistant Professor",      type:"core",  interests:"Agribusiness Management, Entrepreneurship Development, Startups & Innovation" },
+  { id:5,  name:"Dr. Risha Mal",           short:"RM", role:"Assistant Professor",      type:"core",  interests:"Thermo-Electrics, Advanced Cookstoves, Renewable Energy, Ergonomics, Biomass, ML/AI" },
+  { id:6,  name:"Dr. Dipankar Mandal",     short:"DM", role:"Assistant Professor",      type:"core",  interests:"Remote sensing & GIS for agriculture, digital agriculture analytics, UAV & spatial planning" },
+  { id:7,  name:"Prof. Ajay Kalamdhad",    short:"AK", role:"Professor",                type:"assoc", interests:"Solid waste management, mechanical composting and vermicomposting, waste analysis" },
+  { id:8,  name:"Prof. Arup K. Sarma",     short:"AS", role:"Professor",                type:"assoc", interests:"Modeling in Free Surface Flow, Heuristic Reservoir Optimization, GIS Watershed Modeling" },
+  { id:9,  name:"Prof. Amarendra K. Das",  short:"AD", role:"Professor",                type:"assoc", interests:"Industrial Design, Rapid Prototyping, Space Design, Design for Disabled" },
+  { id:10, name:"Prof. Kishore Nanda",     short:"KN", role:"Professor",                type:"assoc", interests:"Biofuels, Computational Fluid Flow & Heat Transfer, Non-Newtonian Fluids" },
+  { id:11, name:"Prof. Karuna Kalita",     short:"KK", role:"Professor",                type:"assoc", interests:"Rotordynamics, Coupled Dynamics of Electro-Mechanical Systems, Vibration" },
+  { id:12, name:"Prof. Latha Rangan",      short:"LR", role:"Professor",                type:"assoc", interests:"Applied Biodiversity" },
+  { id:13, name:"Prof. Mrinal K. Dutta",   short:"MD", role:"Professor",                type:"assoc", interests:"Agricultural Economics, Environmental Economics, Regional Economic Development" },
+  { id:14, name:"Prof. Mohammad Jawed",    short:"MJ", role:"Professor",                type:"assoc", interests:"Biological Processes, Anaerobic Wastewater Treatment, Heavy Metal Removal, Water Treatment" },
+  { id:15, name:"Dr. Pranab Mondal",       short:"PM", role:"Associate Professor",      type:"assoc", interests:"Microfluidics, Electrokinetics, Flow Through Porous Media, Microscale Heat Transport" },
+  { id:16, name:"Dr. Pankaj Kalita",       short:"PK", role:"Associate Professor",      type:"assoc", interests:"Clean Energy Technology, Gasification, Energy Storage, Solar Energy Integration" },
+  { id:17, name:"Prof. Ramagopal Uppaluri",short:"RU", role:"Professor",                type:"assoc", interests:"Food Process Engineering and Technology" },
+  { id:18, name:"Prof. Rakhi Chaturvedi",  short:"RC", role:"Professor",                type:"assoc", interests:"Plant cell, Tissue & Organ culture, Plant Secondary Metabolites isolation & characterization" },
+  { id:19, name:"Prof. Sanjukta Patra",    short:"SP", role:"Professor",                type:"assoc", interests:"Food processing and agricultural waste utilisation" },
+  { id:20, name:"Prof. Sashindra K. Kakoty",short:"SK",role:"Professor & Founding Head",type:"assoc", interests:"Tribology, Duct Acoustics, Mechanical System Design, Rural Technology" },
+];
+
+/* ── 3. UI STATE ───────────────────────────────────── */
+let S = {
+  view: "home",             // "home" | "detail"
+  selectedId: null,
+  filter: "all",            // "all" | "core" | "assoc"
+  search: "",
+  reviews: {},              // profId → array of review docs
+  unsubscribe: null,        // Firestore listener
+  form: { overall:0, teaching:0, difficulty:0, again:null, course:"", comment:"" },
+  submitting: false,
+  currentUser: null,
+};
+
+/* ── 4. HELPERS ────────────────────────────────────── */
+function avg(arr, key) {
+  if (!arr || !arr.length) return null;
+  return arr.reduce((s, r) => s + r[key], 0) / arr.length;
+}
+function ratingColor(n) {
+  if (!n) return "";
+  return n >= 4 ? "rcolor-high" : n >= 3 ? "rcolor-mid" : "rcolor-low";
+}
+function starStr(n, total = 5) {
+  let s = "";
+  for (let i = 1; i <= total; i++) s += i <= Math.round(n) ? "★" : "☆";
+  return s;
+}
+function initials(email) {
+  if (!email) return "?";
+  return email.split("@")[0].replace(/[._]/g," ").split(" ").filter(Boolean)
+    .map(w => w[0].toUpperCase()).slice(0,2).join("") || email[0].toUpperCase();
+}
+function shortEmail(email) {
+  return email ? email.split("@")[0] : "";
+}
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2800);
+}
+function timeAgo(ts) {
+  if (!ts) return "";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diff < 60)  return "just now";
+  if (diff < 3600) return Math.floor(diff/60) + "m ago";
+  if (diff < 86400) return Math.floor(diff/3600) + "h ago";
+  return Math.floor(diff/86400) + "d ago";
+}
+
+/* ── 5. AUTH ───────────────────────────────────────── */
+window.switchTab = (tab) => {
+  document.getElementById("auth-error").style.display   = "none";
+  document.getElementById("auth-success").style.display = "none";
+  document.getElementById("tab-login").classList.toggle("active", tab === "login");
+  document.getElementById("tab-register").classList.toggle("active", tab === "register");
+  document.getElementById("login-form").style.display    = tab === "login"    ? "" : "none";
+  document.getElementById("register-form").style.display = tab === "register" ? "" : "none";
+};
+
+function showAuthError(msg) {
+  const el = document.getElementById("auth-error");
+  el.textContent = msg; el.style.display = "block";
+  document.getElementById("auth-success").style.display = "none";
+}
+function showAuthSuccess(msg) {
+  const el = document.getElementById("auth-success");
+  el.textContent = msg; el.style.display = "block";
+  document.getElementById("auth-error").style.display = "none";
+}
+
+function validateDomain(email) {
+  return email.trim().toLowerCase().endsWith("@" + ALLOWED_DOMAIN);
+}
+
+window.doLogin = async () => {
+  if (!configured) return;
+  const email = document.getElementById("login-email").value.trim();
+  const pass  = document.getElementById("login-pass").value;
+  document.getElementById("auth-error").style.display = "none";
+  if (!validateDomain(email)) return showAuthError("Only @iitg.ac.in email addresses are allowed.");
+  if (!pass) return showAuthError("Please enter your password.");
+  const btn = document.getElementById("login-btn");
+  btn.disabled = true; btn.textContent = "Signing in…";
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e) {
+    btn.disabled = false; btn.textContent = "Sign In";
+    const MAP = {
+      "auth/user-not-found":  "No account found with this email. Please register first.",
+      "auth/wrong-password":  "Incorrect password. Please try again.",
+      "auth/invalid-credential": "Invalid email or password.",
+      "auth/too-many-requests": "Too many failed attempts. Try again later.",
+      "auth/invalid-email":   "Invalid email format.",
+    };
+    showAuthError(MAP[e.code] || "Sign in failed: " + e.message);
+  }
+};
+
+window.doRegister = async () => {
+  if (!configured) return;
+  const email = document.getElementById("reg-email").value.trim();
+  const pass  = document.getElementById("reg-pass").value;
+  const pass2 = document.getElementById("reg-pass2").value;
+  document.getElementById("auth-error").style.display = "none";
+  if (!validateDomain(email)) return showAuthError("Only @iitg.ac.in email addresses are allowed.");
+  if (pass.length < 6)        return showAuthError("Password must be at least 6 characters.");
+  if (pass !== pass2)         return showAuthError("Passwords do not match.");
+  const btn = document.getElementById("reg-btn");
+  btn.disabled = true; btn.textContent = "Creating account…";
+  try {
+    await createUserWithEmailAndPassword(auth, email, pass);
+    showAuthSuccess("Account created! You are now signed in.");
+  } catch(e) {
+    btn.disabled = false; btn.textContent = "Create Account";
+    const MAP = {
+      "auth/email-already-in-use": "An account with this email already exists. Sign in instead.",
+      "auth/weak-password":        "Password is too weak. Use at least 6 characters.",
+      "auth/invalid-email":        "Invalid email format.",
+    };
+    showAuthError(MAP[e.code] || "Registration failed: " + e.message);
+  }
+};
+
+window.doLogout = async () => {
+  if (S.unsubscribe) { S.unsubscribe(); S.unsubscribe = null; }
+  await signOut(auth);
+};
+
+window.togglePwd = (id) => {
+  const el = document.getElementById(id);
+  el.type = el.type === "password" ? "text" : "password";
+};
+
+/* ── 6. AUTH STATE OBSERVER ────────────────────────── */
+if (auth) {
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      S.currentUser = user;
+      document.getElementById("auth-screen").style.display = "none";
+      document.getElementById("app-screen").style.display  = "block";
+      document.getElementById("user-initials").textContent = initials(user.email);
+      document.getElementById("user-display").textContent  = shortEmail(user.email);
+      startReviewListener();
+    } else {
+      S.currentUser = null;
+      document.getElementById("auth-screen").style.display  = "flex";
+      document.getElementById("app-screen").style.display   = "none";
+      if (S.unsubscribe) { S.unsubscribe(); S.unsubscribe = null; }
+    }
+  });
+} else {
+  document.getElementById("auth-screen").style.display = "flex";
+}
+
+/* ── 7. FIRESTORE LISTENER ─────────────────────────── */
+function startReviewListener() {
+  if (S.unsubscribe) S.unsubscribe();
+  const q = query(collection(db, "reviews"), orderBy("createdAt", "desc"));
+  S.unsubscribe = onSnapshot(q, snap => {
+    const grouped = {};
+    snap.forEach(doc => {
+      const d = { id: doc.id, ...doc.data() };
+      if (!grouped[d.profId]) grouped[d.profId] = [];
+      grouped[d.profId].push(d);
+    });
+    S.reviews = grouped;
+    renderApp();
+  }, err => {
+    console.error("Firestore error:", err);
+    document.getElementById("main-content").innerHTML =
+      `<div class="empty-state">⚠️ Could not load reviews. Check your Firestore setup and security rules.</div>`;
+  });
+}
+
+/* ── 8. RENDER ─────────────────────────────────────── */
+function renderApp() {
+  const el = document.getElementById("main-content");
+  if (S.view === "home")   el.innerHTML = renderHome();
+  if (S.view === "detail") el.innerHTML = renderDetail();
+}
+
+function renderHome() {
+  const total = Object.values(S.reviews).reduce((s, a) => s + a.length, 0);
+  const rated = Object.keys(S.reviews).length;
+
+  const filtered = FACULTY.filter(f => {
+    if (S.filter !== "all" && f.type !== S.filter) return false;
+    const q = S.search.toLowerCase();
+    return !q || f.name.toLowerCase().includes(q) || f.interests.toLowerCase().includes(q) || f.role.toLowerCase().includes(q);
+  });
+
+  const cards = filtered.map(f => {
+    const rl  = S.reviews[f.id] || [];
+    const a   = avg(rl, "overall");
+    const cls = ratingColor(a);
+    return `
+    <div class="prof-card" onclick="openProf(${f.id})">
+      <div class="card-top">
+        <div class="avatar${f.type==='assoc'?' assoc':''}">${f.short}</div>
+        <div style="min-width:0">
+          <div class="card-name">${f.name}</div>
+          <div class="card-role">${f.role}</div>
+        </div>
+      </div>
+      <div class="card-interests">${f.interests}</div>
+      <div class="card-footer">
+        <div>
+          ${a ? `<div class="rating-display">
+            <span class="rating-num ${cls}">${a.toFixed(1)}</span>
+            <span class="rating-star">★</span>
+          </div>
+          <div class="rating-count">${rl.length} review${rl.length!==1?"s":""}</div>`
+          : `<div class="no-rating-txt">No reviews yet</div>`}
+        </div>
+        <span class="type-pill ${f.type==='core'?'core-pill':'assoc-pill'}">${f.type==='core'?'Core':'Associate'}</span>
+      </div>
+    </div>`;
+  }).join("");
+
+  return `
+  <div class="home-hero">
+    <div>
+      <h2>Rate My Professor — SART</h2>
+      <p>School of Agro and Rural Technology &bull; IIT Guwahati</p>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="n">${FACULTY.length}</div><div class="l">Faculty</div></div>
+      <div class="hero-stat"><div class="n">${rated}</div><div class="l">Rated</div></div>
+      <div class="hero-stat"><div class="n">${total}</div><div class="l">Reviews</div></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <input class="search-input" type="text" placeholder="Search by name or research area…" value="${S.search}" oninput="onSearch(this.value)">
+    <div class="filter-tabs">
+      <div class="ftab${S.filter==='all'?' active':''}" onclick="setFilter('all')">All (${FACULTY.length})</div>
+      <div class="ftab${S.filter==='core'?' active':''}" onclick="setFilter('core')">Core (6)</div>
+      <div class="ftab${S.filter==='assoc'?' active':''}" onclick="setFilter('assoc')">Associate (14)</div>
+    </div>
+  </div>
+
+  ${filtered.length === 0
+    ? `<div class="empty-state">No professors match your search.</div>`
+    : `<div class="prof-grid">${cards}</div>`}`;
+}
+
+function renderDetail() {
+  const f  = FACULTY.find(x => x.id === S.selectedId);
+  if (!f) return renderHome();
+  const rl       = S.reviews[f.id] || [];
+  const aOvr     = avg(rl, "overall");
+  const aTeach   = avg(rl, "teaching");
+  const aDiff    = avg(rl, "difficulty");
+  const pAgain   = rl.length ? Math.round(100 * rl.filter(r => r.again).length / rl.length) : null;
+  const fd       = S.form;
+  const canSubmit = fd.overall && fd.teaching && fd.difficulty && fd.again !== null;
+
+  const reviewsHTML = rl.length === 0
+    ? `<div class="empty-state">No reviews yet — be the first to rate ${f.name.split(" ").pop()}!</div>`
+    : rl.map(r => `
+      <div class="review-card">
+        <div class="review-top">
+          <span class="review-stars">${starStr(r.overall)}</span>
+          ${r.course ? `<span class="review-course">${r.course}</span>` : ""}
+          <span class="review-user">${r.userHandle || "anonymous"} &bull; ${timeAgo(r.createdAt)}</span>
+        </div>
+        ${r.comment ? `<div class="review-body">${r.comment}</div>` : ""}
+        <div class="review-pills">
+          <span class="rpill rpill-teach">Teaching: ${r.teaching}/5</span>
+          <span class="rpill rpill-diff">Difficulty: ${r.difficulty}/5</span>
+          ${r.again ? '<span class="rpill rpill-again">Would take again</span>' : '<span class="rpill rpill-noagain">Would not take again</span>'}
+        </div>
+      </div>`).join("");
+
+  function starSelect(field, val) {
+    return `<div class="star-row">${[1,2,3,4,5].map(i =>
+      `<button class="sstar${val>=i?' lit':''}" onclick="setForm('${field}',${i})">★</button>`).join("")}</div>`;
+  }
+
+  return `
+  <div class="back-row">
+    <button class="back-btn" onclick="goHome()">← Back to all professors</button>
+    <span style="font-size:12px;color:var(--text-3)"><span class="live-dot"></span>Live updates on</span>
+  </div>
+
+  <div class="detail-card">
+    <div class="detail-header">
+      <div class="avatar-xl">${f.short}</div>
+      <div>
+        <div class="detail-name">${f.name}</div>
+        <div class="detail-role">${f.role} &bull;
+          <span class="type-pill ${f.type==='core'?'core-pill':'assoc-pill'}">${f.type==='core'?'Core Faculty':'Associate Faculty'}</span>
+        </div>
+        <div class="detail-interests">${f.interests}</div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-num ${ratingColor(aOvr)}">${aOvr ? aOvr.toFixed(1) : "—"}</div>
+        <div class="stat-stars">${aOvr ? starStr(aOvr) : "☆☆☆☆☆"}</div>
+        <div class="stat-lbl">Overall Rating</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">${aTeach ? aTeach.toFixed(1) : "—"}</div>
+        <div class="stat-stars" style="font-size:12px;color:#ccc">${aTeach ? starStr(aTeach) : "☆☆☆☆☆"}</div>
+        <div class="stat-lbl">Teaching Quality</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">${aDiff ? aDiff.toFixed(1) : "—"}</div>
+        <div class="stat-lbl" style="margin-top:6px">Difficulty / 5</div>
+        <div class="stat-lbl">${aDiff ? (aDiff < 2.5 ? "Easy" : aDiff < 3.5 ? "Moderate" : "Hard") : ""}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num ${pAgain !== null ? (pAgain >= 70 ? 'rcolor-high' : pAgain < 40 ? 'rcolor-low' : 'rcolor-mid') : ''}">${pAgain !== null ? pAgain + "%" : "—"}</div>
+        <div class="stat-lbl" style="margin-top:6px">Would Take Again</div>
+        <div class="stat-lbl">${rl.length} review${rl.length !== 1 ? "s" : ""}</div>
+      </div>
+    </div>
+
+    <div class="section-hd">Student Reviews <span class="section-badge">${rl.length}</span></div>
+    ${reviewsHTML}
+  </div>
+
+  <div class="form-card">
+    <div class="form-hd">Rate ${f.name.replace(/^(Prof\.|Dr\.)\s*/i,'')}</div>
+
+    <div class="field">
+      <label>Overall Rating <span style="color:#c03030">*</span></label>
+      ${starSelect("overall", fd.overall)}
+    </div>
+    <div class="field">
+      <label>Teaching Quality <span style="color:#c03030">*</span></label>
+      ${starSelect("teaching", fd.teaching)}
+    </div>
+    <div class="field">
+      <label>Difficulty (1 = Easy, 5 = Very Hard) <span style="color:#c03030">*</span></label>
+      ${starSelect("difficulty", fd.difficulty)}
+    </div>
+    <div class="field">
+      <label>Would you take this professor again? <span style="color:#c03030">*</span></label>
+      <div class="toggle-group">
+        <div class="topt${fd.again===true?' on':''}" onclick="setForm('again',true)">Yes</div>
+        <div class="topt${fd.again===false?' on':''}" onclick="setForm('again',false)">No</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Course (optional)</label>
+      <input class="finput" type="text" placeholder="e.g. Rural Technology, MT 601, Natural Resources Management…" value="${fd.course}" oninput="setForm('course',this.value)">
+    </div>
+    <div class="field">
+      <label>Your Review (optional)</label>
+      <textarea class="finput" placeholder="Share your experience — teaching style, helpfulness, workload…" oninput="setForm('comment',this.value)">${fd.comment}</textarea>
+    </div>
+    <div class="submit-row">
+      <button class="submit-btn" onclick="submitReview(${f.id})" ${canSubmit && !S.submitting ? "" : "disabled"}>
+        ${S.submitting ? "Submitting…" : "Submit Review"}
+      </button>
+      <span class="submit-note">Reviews are anonymous — your email is never shown publicly.</span>
+    </div>
+  </div>`;
+}
+
+/* ── 9. EVENT HANDLERS ─────────────────────────────── */
+window.openProf = id => {
+  S.selectedId = id;
+  S.view = "detail";
+  S.form = { overall:0, teaching:0, difficulty:0, again:null, course:"", comment:"" };
+  renderApp();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+window.goHome = () => {
+  S.view = "home";
+  renderApp();
+  window.scrollTo({ top: 0 });
+};
+
+window.setFilter = f => { S.filter = f; renderApp(); };
+window.onSearch  = v => { S.search = v; renderApp(); };
+window.setForm   = (field, val) => { S.form[field] = val; renderApp(); };
+
+window.submitReview = async (profId) => {
+  if (!S.currentUser || !db) return;
+  const fd = S.form;
+  if (!fd.overall || !fd.teaching || !fd.difficulty || fd.again === null) return;
+  S.submitting = true;
+  renderApp();
+  try {
+    await addDoc(collection(db, "reviews"), {
+      profId,
+      overall:    fd.overall,
+      teaching:   fd.teaching,
+      difficulty: fd.difficulty,
+      again:      fd.again,
+      course:     fd.course.trim(),
+      comment:    fd.comment.trim(),
+      userId:     S.currentUser.uid,
+      userHandle: shortEmail(S.currentUser.email),  // e.g. "john.doe" (no domain)
+      createdAt:  serverTimestamp(),
+    });
+    S.form = { overall:0, teaching:0, difficulty:0, again:null, course:"", comment:"" };
+    toast("✓ Review submitted! Thank you.");
+  } catch(e) {
+    toast("Error submitting review. Please try again.");
+    console.error(e);
+  } finally {
+    S.submitting = false;
+    renderApp();
+  }
+};
+
+/* initial render trigger — reviews come in via onSnapshot */
+</script>
+</body>
+</html>
+
+<!--
+════════════════════════════════════════════════════════════════════
+  FIRESTORE SECURITY RULES
+  Copy-paste this into Firebase Console → Firestore → Rules tab
+════════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: only @iitg.ac.in emails allowed
+    function isIITGUser() {
+      return request.auth != null
+          && request.auth.token.email.matches('.*@iitg\\.ac\\.in');
+    }
+
+    match /reviews/{reviewId} {
+      // Anyone with an @iitg.ac.in email can read all reviews
+      allow read: if isIITGUser();
+
+      // Only authenticated IITG users can create reviews
+      // and the userId must match their own auth uid
+      allow create: if isIITGUser()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.overall   is int
+                    && request.resource.data.overall   >= 1
+                    && request.resource.data.overall   <= 5
+                    && request.resource.data.teaching  is int
+                    && request.resource.data.difficulty is int
+                    && request.resource.data.again     is bool;
+
+      // Nobody can edit or delete (reviews are permanent)
+      allow update, delete: if false;
+    }
+  }
+}
+
+════════════════════════════════════════════════════════════════════
+  STEP-BY-STEP FIREBASE SETUP
+════════════════════════════════════════════════════════════════════
+
+  1. Go to https://console.firebase.google.com → New Project
+     Give it a name (e.g. "ratesart-iitg"), skip Analytics
+
+  2. In the left sidebar: Build → Authentication
+     → Get started → Email/Password → Enable → Save
+
+  3. In the left sidebar: Build → Firestore Database
+     → Create database → Start in TEST mode → Choose a region
+     (asia-south1 for Mumbai, closest to Guwahati)
+
+  4. Click the gear icon ⚙ → Project Settings → General
+     → Scroll to "Your apps" → Add app → Web (</>)
+     → Register app → copy the firebaseConfig object
+
+  5. Paste the values into FIREBASE_CONFIG at the top of this file
+
+  6. Back in Firestore → Rules tab → replace the content with
+     the security rules shown above → Publish
+
+  7. Open ratesart.html in a browser — done!
+     Deploy on any static host (GitHub Pages, Netlify, Vercel, etc.)
+
+════════════════════════════════════════════════════════════════════
+-->
